@@ -152,8 +152,6 @@ python app_v4.py
 ### 3. Open frontend
 ```bash
 # Open frontend/index.html in a browser
-# Or serve it:
-cd frontend
 python -m http.server 8080
 # Visit http://localhost:8080
 ```
