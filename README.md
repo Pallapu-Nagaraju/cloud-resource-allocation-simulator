@@ -57,6 +57,8 @@ Predictive scheduling balances workload based on system state, reducing overload
 The system dynamically scales resources to handle increasing demand, preventing performance degradation.
 
 
+Overall, the results show that naive scheduling strategies fail under dynamic workloads, whereas adaptive approaches improve system stability, resource utilisation, and throughput.
+
 ## Technology Used
 
 ### Backend
