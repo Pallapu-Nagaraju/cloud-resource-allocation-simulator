@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CloudSim v4 — Elite Resource Allocation Simulator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#03060e;--s1:#07101e;--s2:#0a1628;--s3:#0e1d35;
+  --bd:rgba(30,120,255,.15);--bd2:rgba(30,120,255,.07);
+  --acc:#2d8eff;--grn:#00dea0;--red:#ff3355;--org:#ff7730;
+  --yel:#ffb830;--pur:#a855ff;--cya:#00c8ff;
+  --txt:#b8d4f0;--mut:#3a5570;
+  --mono:'Fira Code',monospace;--sans:'Space Grotesk',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--sans);overflow:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    radial-gradient(ellipse 70% 50% at 15% 70%,rgba(45,142,255,.05) 0%,transparent 65%),
+    radial-gradient(ellipse 50% 60% at 85% 15%,rgba(0,222,160,.04) 0%,transparent 65%),
+    radial-gradient(ellipse 40% 40% at 50% 50%,rgba(168,85,255,.03) 0%,transparent 65%),
+    linear-gradient(rgba(30,120,255,.02) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(30,120,255,.02) 1px,transparent 1px);
+  background-size:100%,100%,100%,32px 32px,32px 32px}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.015) 3px,rgba(0,0,0,.015) 4px)}
+
+/* ── Root layout ─────────────────────────────────────── */
+#root{position:relative;z-index:5;display:grid;
+  grid-template-rows:54px 1fr;height:100vh}
+#main{display:grid;grid-template-columns:244px 1fr 228px;gap:1px;background:var(--bd2);overflow:hidden}
+
+/* ── Header ──────────────────────────────────────────── */
+#hdr{background:rgba(3,6,14,.97);border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 18px;backdrop-filter:blur(16px)}
+.logo-area{display:flex;align-items:center;gap:10px}
+.logo{font-family:var(--sans);font-size:16px;font-weight:700;color:#fff;letter-spacing:-.02em}
+.logo em{color:var(--acc);font-style:normal}
+.vtag{font-size:9px;font-family:var(--mono);color:var(--pur);
+  background:rgba(168,85,255,.12);border:1px solid rgba(168,85,255,.25);
+  border-radius:4px;padding:2px 7px;letter-spacing:.05em}
+.elite-tag{font-size:9px;font-family:var(--mono);color:var(--grn);
+  background:rgba(0,222,160,.1);border:1px solid rgba(0,222,160,.2);
+  border-radius:4px;padding:2px 7px;letter-spacing:.05em}
+
+/* ── Header stat pills ───────────────────────────────── */
+.hpills{display:flex;gap:1px;background:var(--bd2);border-radius:7px;overflow:hidden}
+.hp{padding:5px 13px;background:var(--s1);text-align:center;min-width:72px}
+.hpv{font-family:var(--mono);font-size:13px;font-weight:600;color:#fff;line-height:1}
+.hpl{font-size:8px;color:var(--mut);margin-top:2px;letter-spacing:.06em;text-transform:uppercase}
+.hpv.blue{color:var(--acc)}.hpv.grn{color:var(--grn)}.hpv.red{color:var(--red)}
+.hpv.yel{color:var(--yel)}.hpv.org{color:var(--org)}.hpv.pur{color:var(--pur)}.hpv.cya{color:var(--cya)}
+
+.hdr-right{display:flex;align-items:center;gap:12px}
+.live-pill{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;color:var(--grn);letter-spacing:.1em}
+.lpulse{width:6px;height:6px;border-radius:50%;background:var(--grn);animation:lp 1.5s ease infinite}
+@keyframes lp{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,222,160,.5)}50%{opacity:.5;box-shadow:0 0 0 5px transparent}}
+#conn{font-size:9px;font-family:var(--mono);padding:3px 9px;border-radius:20px;font-weight:600;letter-spacing:.05em}
+#conn.on{background:rgba(0,222,160,.1);color:var(--grn);border:1px solid rgba(0,222,160,.2)}
+#conn.off{background:rgba(255,51,85,.1);color:var(--red);border:1px solid rgba(255,51,85,.2)}
+#clock{font-family:var(--mono);font-size:10px;color:var(--mut)}
+
+/* ── Column base ─────────────────────────────────────── */
+.col{background:var(--s1);padding:12px;overflow-y:auto;overflow-x:hidden}
+.col::-webkit-scrollbar{width:2px}
+.col::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+.lbl{font-size:8px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);
+  margin-bottom:9px;display:flex;align-items:center;gap:7px}
+.lbl::after{content:'';flex:1;height:1px;background:var(--bd2)}
+
+/* ── VM Cards ────────────────────────────────────────── */
+.vmc{background:var(--s2);border:1px solid var(--bd2);border-radius:8px;
+  padding:10px 11px;margin-bottom:7px;position:relative;overflow:hidden;transition:border-color .3s,box-shadow .3s}
+.vmc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px;transition:background .3s}
+.vmc.idle::before{background:var(--mut)}
+.vmc.active::before{background:var(--acc)}
+.vmc.busy::before{background:var(--yel)}
+.vmc.overloaded::before{background:var(--red);animation:flic .5s ease infinite alternate}
+.vmc.overloaded{border-color:rgba(255,51,85,.18);box-shadow:0 0 12px rgba(255,51,85,.08)}
+@keyframes flic{from{opacity:1}to{opacity:.4}}
+.vmc.auto-vm{border-style:dashed;border-color:rgba(168,85,255,.25)}
+.vmc.auto-vm::after{content:'AUTO';position:absolute;top:6px;right:8px;
+  font-size:7px;font-family:var(--mono);color:var(--pur);letter-spacing:.08em}
+
+.vmtop{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.vmname{font-size:12px;font-weight:600;color:#fff}
+.vmrgn{font-size:8px;color:var(--mut);margin-top:1px;font-family:var(--mono)}
+.vmbadge{font-size:8px;font-weight:600;padding:2px 6px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em}
+.bi{background:rgba(58,85,112,.15);color:var(--mut)}
+.ba{background:rgba(45,142,255,.12);color:var(--acc)}
+.bb{background:rgba(255,184,48,.12);color:var(--yel)}
+.bo{background:rgba(255,51,85,.12);color:var(--red)}
+
+.brow{margin-bottom:4px}
+.bmeta{display:flex;justify-content:space-between;font-size:9px;margin-bottom:2px}
+.bk{color:var(--mut)}.bv{color:var(--txt);font-weight:500;font-family:var(--mono)}
+.bt{height:4px;background:rgba(255,255,255,.04);border-radius:2px;overflow:hidden}
+.bf{height:100%;border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.bf.cpu{background:linear-gradient(90deg,#1855cc,#2d8eff)}
+.bf.mem{background:linear-gradient(90deg,#009060,#00dea0)}
+.bf.dsk{background:linear-gradient(90deg,#b84000,#ff7730)}
+.bf.w{background:linear-gradient(90deg,#cc8800,#ffb830)!important}
+.bf.d{background:linear-gradient(90deg,#cc1133,#ff3355)!important}
+
+/* ── Predicted load bar ──────────────────────────────── */
+.pred-row{margin-top:5px;padding-top:5px;border-top:1px solid var(--bd2)}
+.pred-bar-wrap{position:relative;height:3px;background:rgba(255,255,255,.04);border-radius:2px;overflow:visible;margin-top:3px}
+.pred-bar{height:100%;border-radius:2px;background:repeating-linear-gradient(
+  90deg,rgba(168,85,255,.7) 0px,rgba(168,85,255,.7) 4px,transparent 4px,transparent 8px);
+  transition:width .6s ease}
+.pred-label{font-size:8px;color:var(--pur);font-family:var(--mono)}
+
+.vm-meta{display:flex;gap:8px;font-size:8px;color:var(--mut);margin-top:5px;font-family:var(--mono);flex-wrap:wrap}
+.vm-meta span{display:flex;align-items:center;gap:3px}
+
+/* ── Center column ───────────────────────────────────── */
+.center-col{background:var(--s1);display:flex;flex-direction:column;gap:1px;overflow:hidden}
+.charts-area{padding:12px;flex:1;display:flex;flex-direction:column;gap:10px;overflow:hidden;min-height:0}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cgrid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.ccard{background:var(--s2);border:1px solid var(--bd2);border-radius:7px;padding:10px;display:flex;flex-direction:column}
+.ctitle{font-size:8px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin-bottom:7px;display:flex;align-items:center;justify-content:space-between}
+.cwrap{position:relative;flex:1;min-height:90px}
+
+/* ── Flow diagram ────────────────────────────────────── */
+#flow{background:var(--s2);border-top:1px solid var(--bd2);padding:8px 12px;flex-shrink:0}
+.flow-nodes{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:nowrap;overflow-x:auto;padding:4px 0}
+.fn{background:var(--s3);border:1px solid var(--bd);border-radius:6px;
+  padding:6px 10px;text-align:center;white-space:nowrap;flex-shrink:0}
+.fn.hl{border-color:var(--acc);box-shadow:0 0 10px rgba(45,142,255,.15)}
+.fn.grn-hl{border-color:var(--grn);box-shadow:0 0 10px rgba(0,222,160,.12)}
+.fn.pur-hl{border-color:var(--pur);box-shadow:0 0 10px rgba(168,85,255,.12)}
+.fn.red-hl{border-color:var(--red);box-shadow:0 0 10px rgba(255,51,85,.1)}
+.fnt{font-size:9px;font-weight:600;color:#fff}
+.fns{font-size:8px;color:var(--mut);margin-top:1px;font-family:var(--mono)}
+.farr{color:var(--acc);font-size:14px;padding:0 4px;opacity:.6;flex-shrink:0}
+
+/* ── Right panel ─────────────────────────────────────── */
+.rcol{background:var(--s1);padding:12px;display:flex;flex-direction:column;gap:11px;overflow-y:auto}
+.rcol::-webkit-scrollbar{width:2px}
+.rcol::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+
+/* ── Algo grid ───────────────────────────────────────── */
+.ag{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.abtn{background:var(--s2);border:1px solid var(--bd2);border-radius:5px;
+  padding:6px 4px;font-family:var(--mono);font-size:9px;font-weight:500;
+  color:var(--mut);cursor:pointer;text-align:center;transition:all .15s;width:100%}
+.abtn:hover{border-color:var(--bd);color:var(--txt)}
+.abtn.on{border-color:var(--acc);color:var(--acc);background:rgba(45,142,255,.1)}
+.abtn.on.predictive{border-color:var(--grn);color:var(--grn);background:rgba(0,222,160,.08)}
+.abtn:last-child:nth-child(odd){grid-column:span 2}
+
+/* ── Priority selector ───────────────────────────────── */
+.prow{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.pbtn{padding:5px;border-radius:5px;border:1px solid var(--bd2);background:var(--s2);
+  font-family:var(--mono);font-size:9px;color:var(--mut);cursor:pointer;text-align:center;transition:all .15s}
+.pbtn:hover{color:var(--txt);border-color:var(--bd)}
+.pbtn.on.ph{border-color:var(--red);color:var(--red);background:rgba(255,51,85,.08)}
+.pbtn.on.pn{border-color:var(--yel);color:var(--yel);background:rgba(255,184,48,.08)}
+.pbtn.on.pl{border-color:var(--grn);color:var(--grn);background:rgba(0,222,160,.08)}
+
+/* ── Sliders ─────────────────────────────────────────── */
+.srow{margin-bottom:6px}
+.stop{display:flex;justify-content:space-between;font-size:9px;margin-bottom:3px}
+.sk{color:var(--mut)}.sv{color:var(--txt);font-weight:500;font-family:var(--mono)}
+input[type=range]{width:100%;height:3px;-webkit-appearance:none;appearance:none;
+  background:rgba(255,255,255,.05);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;
+  border-radius:50%;background:var(--acc);cursor:pointer}
+
+/* ── Toggles ─────────────────────────────────────────── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;
+  background:var(--s2);border:1px solid var(--bd2);border-radius:6px;padding:7px 10px}
+.tgl-label{font-size:10px;color:var(--txt)}
+.tgl-sub{font-size:8px;color:var(--mut);font-family:var(--mono);margin-top:1px}
+.tgl-switch{position:relative;width:34px;height:18px;cursor:pointer}
+.tgl-switch input{opacity:0;width:0;height:0}
+.tgl-track{position:absolute;inset:0;background:rgba(255,255,255,.08);border-radius:20px;
+  border:1px solid var(--bd2);transition:background .2s}
+.tgl-thumb{position:absolute;left:3px;top:3px;width:10px;height:10px;border-radius:50%;
+  background:var(--mut);transition:transform .2s,background .2s}
+input:checked + .tgl-track{background:rgba(0,222,160,.15);border-color:rgba(0,222,160,.3)}
+input:checked ~ .tgl-thumb,
+.tgl-switch input:checked + .tgl-track + .tgl-thumb{background:var(--grn);transform:translateX(16px)}
+
+/* ── Action buttons ──────────────────────────────────── */
+.bstack{display:flex;flex-direction:column;gap:4px}
+.xb{padding:8px 11px;border-radius:6px;border:1px solid var(--bd);background:transparent;
+  font-family:var(--sans);font-size:10px;font-weight:500;color:var(--txt);
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;width:100%}
+.xb:hover{background:rgba(45,142,255,.08);border-color:var(--acc);color:#fff}
+.xb.prim{background:var(--acc);border-color:var(--acc);color:#fff}
+.xb.prim:hover{background:#1a7ae8}
+.xb.grn-btn{background:rgba(0,222,160,.1);border-color:rgba(0,222,160,.22);color:var(--grn)}
+.xb.grn-btn.on{background:rgba(255,51,85,.1);border-color:rgba(255,51,85,.22);color:var(--red)}
+.xb.pur-btn{background:rgba(168,85,255,.1);border-color:rgba(168,85,255,.22);color:var(--pur)}
+.xb.pur-btn:hover{background:rgba(168,85,255,.2)}
+.xb.muted{color:var(--mut)}
+.xb:active{transform:scale(.97)}
+
+/* ── Queue ───────────────────────────────────────────── */
+.qwrap{display:flex;flex-wrap:wrap;gap:3px;min-height:22px;align-content:flex-start}
+.qchip{font-size:8px;padding:2px 6px;border-radius:4px;font-weight:500;font-family:var(--mono)}
+.q-retry{background:rgba(255,51,85,.15);color:#ff8899;border:1px solid rgba(255,51,85,.2)}
+.q-high {background:rgba(168,85,255,.15);color:#c084fc;border:1px solid rgba(168,85,255,.2)}
+.q-normal{background:rgba(45,142,255,.12);color:#7ab3ff;border:1px solid rgba(45,142,255,.15)}
+.q-low  {background:rgba(58,85,112,.12);color:var(--mut);border:1px solid var(--bd2)}
+.qe{font-size:9px;color:var(--mut);line-height:22px;font-family:var(--mono)}
+
+/* ── Log ─────────────────────────────────────────────── */
+.logwrap{overflow-y:auto;max-height:130px}
+.logwrap::-webkit-scrollbar{width:2px}
+.logwrap::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+.ll{font-size:9px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.02);
+  display:flex;gap:6px;font-family:var(--mono);line-height:1.5}
+.lt{color:var(--mut);flex-shrink:0}.lm{color:var(--txt)}
+.ll.success .lm{color:var(--grn)}.ll.error .lm{color:var(--red)}
+.ll.warning .lm{color:var(--yel)}.ll.info .lm{color:var(--acc)}
+
+/* ── Banner ──────────────────────────────────────────── */
+#banner{display:none;position:fixed;top:60px;left:50%;transform:translateX(-50%);
+  background:#110208;border:1px solid var(--red);border-radius:8px;
+  padding:10px 18px;font-size:10px;color:var(--red);z-index:9999;
+  font-family:var(--mono);text-align:center;box-shadow:0 4px 24px rgba(255,51,85,.2)}
+
+/* ── Notification toast ──────────────────────────────── */
+#toast{position:fixed;bottom:20px;right:20px;background:var(--s2);
+  border:1px solid var(--bd);border-radius:8px;padding:8px 14px;
+  font-size:10px;font-family:var(--mono);color:var(--txt);
+  z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.show{opacity:1}
+
+/* ── Feature badges ──────────────────────────────────── */
+.feat-badges{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:8px}
+.fbadge{font-size:8px;font-family:var(--mono);padding:2px 6px;border-radius:3px;
+  font-weight:500;letter-spacing:.03em}
+.fb-grn{background:rgba(0,222,160,.1);color:var(--grn);border:1px solid rgba(0,222,160,.15)}
+.fb-pur{background:rgba(168,85,255,.1);color:var(--pur);border:1px solid rgba(168,85,255,.15)}
+.fb-blu{background:rgba(45,142,255,.1);color:var(--acc);border:1px solid rgba(45,142,255,.15)}
+.fb-yel{background:rgba(255,184,48,.1);color:var(--yel);border:1px solid rgba(255,184,48,.15)}
+.fb-red{background:rgba(255,51,85,.1);color:var(--red);border:1px solid rgba(255,51,85,.15)}
+</style>
+</head>
+<body>
+<div id="root">
+
+<!-- ── HEADER ─────────────────────────────────────────── -->
+<div id="hdr">
+  <div class="logo-area">
+    <div class="logo">☁ Cloud<em>Sim</em></div>
+    <span class="vtag">v4.0</span>
+    <span class="elite-tag">ELITE</span>
+  </div>
+  <div class="hpills">
+    <div class="hp"><div class="hpv blue" id="h-cpu">0%</div><div class="hpl">AVG CPU</div></div>
+    <div class="hp"><div class="hpv grn"  id="h-mem">0%</div><div class="hpl">AVG MEM</div></div>
+    <div class="hp"><div class="hpv pur"  id="h-pred">0%</div><div class="hpl">PREDICTED</div></div>
+    <div class="hp"><div class="hpv"      id="h-done">0</div><div class="hpl">DONE</div></div>
+    <div class="hp"><div class="hpv red"  id="h-fail">0</div><div class="hpl">FAILED</div></div>
+    <div class="hp"><div class="hpv cya"  id="h-migr">0</div><div class="hpl">MIGRATED</div></div>
+    <div class="hp"><div class="hpv yel"  id="h-retry">0</div><div class="hpl">RETRIED</div></div>
+    <div class="hp"><div class="hpv org"  id="h-q">0</div><div class="hpl">QUEUED</div></div>
+    <div class="hp"><div class="hpv"      id="h-vms">4</div><div class="hpl">VMs</div></div>
+  </div>
+  <div class="hdr-right">
+    <div class="live-pill"><div class="lpulse"></div>SSE LIVE</div>
+    <span id="conn" class="off">OFFLINE</span>
+    <div id="clock">--:--:--</div>
+  </div>
+</div>
+
+<!-- ── MAIN ───────────────────────────────────────────── -->
+<div id="main">
+
+<!-- LEFT: VM Panel -->
+<div class="col">
+  <div class="lbl">Virtual Machines <span id="vm-count-lbl" style="color:var(--acc);font-family:var(--mono);font-size:9px;font-weight:400;letter-spacing:0">(4)</span></div>
+  <div id="vm-panel"></div>
+</div>
+
+<!-- CENTER -->
+<div class="center-col">
+  <div class="charts-area">
+
+    <!-- Feature badges -->
+    <div class="feat-badges">
+      <span class="fbadge fb-grn">✓ Predictive Scheduling</span>
+      <span class="fbadge fb-pur">✓ Auto-Scaling</span>
+      <span class="fbadge fb-cya fb-blu">✓ VM Migration</span>
+      <span class="fbadge fb-red">✓ Priority Preemption</span>
+      <span class="fbadge fb-yel">✓ Retry Logic</span>
+      <span class="fbadge fb-grn">✓ Disk-Aware</span>
+      <span class="fbadge fb-blu">✓ Latency Sim</span>
+      <span class="fbadge fb-pur">✓ SSE Real-Time</span>
+    </div>
+
+    <!-- Row 1: big charts -->
+    <div class="cgrid" style="flex:1;min-height:0">
+      <div class="ccard">
+        <div class="ctitle">CPU / MEM / Predicted Load — Timeline
+          <span style="color:var(--pur);font-size:8px">◌ predicted</span>
+        </div>
+        <div class="cwrap"><canvas id="ch-line"></canvas></div>
+      </div>
+      <div class="ccard">
+        <div class="ctitle">VM Load Distribution (CPU + MEM)
+          <span id="vm-count-chart" style="color:var(--acc);font-size:8px"></span>
+        </div>
+        <div class="cwrap"><canvas id="ch-bar"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 2: small charts -->
+    <div class="cgrid-3" style="flex:unset">
+      <div class="ccard" style="height:95px">
+        <div class="ctitle">Task Type Distribution</div>
+        <div class="cwrap"><canvas id="ch-pie"></canvas></div>
+      </div>
+      <div class="ccard" style="height:95px">
+        <div class="ctitle">Throughput vs Failures</div>
+        <div class="cwrap"><canvas id="ch-thr"></canvas></div>
+      </div>
+      <div class="ccard" style="height:95px">
+        <div class="ctitle">Queue Depth (H/N/L/Retry)</div>
+        <div class="cwrap"><canvas id="ch-q"></canvas></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Flow Diagram -->
+  <div id="flow">
+    <div class="lbl" style="margin-bottom:5px">Intelligent Allocation Pipeline</div>
+    <div class="flow-nodes">
+      <div class="fn hl"><div class="fnt">Task In</div><div class="fns">priority</div></div>
+      <div class="farr">→</div>
+      <div class="fn pur-hl"><div class="fnt">Preempt?</div><div class="fns">high vs low</div></div>
+      <div class="farr">→</div>
+      <div class="fn grn-hl"><div class="fnt">Predict</div><div class="fns" id="f-algo">future load</div></div>
+      <div class="farr">→</div>
+      <div class="fn hl"><div class="fnt">Schedule</div><div class="fns" id="f-algo2">predictive</div></div>
+      <div class="farr">→</div>
+      <div class="fn"><div class="fnt">Fit Check</div><div class="fns">CPU+MEM+DSK</div></div>
+      <div class="farr">→</div>
+      <div class="fn"><div class="fnt">Latency</div><div class="fns">50–200ms</div></div>
+      <div class="farr">→</div>
+      <div class="fn"><div class="fnt">Execute</div><div class="fns">run+release</div></div>
+      <div class="farr">→</div>
+      <div class="fn red-hl"><div class="fnt">Fail?</div><div class="fns">retry ×3</div></div>
+      <div class="farr">→</div>
+      <div class="fn pur-hl"><div class="fnt">Migrate</div><div class="fns">rebalance</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT: Controls -->
+<div class="rcol">
+
+  <!-- Algorithm -->
+  <div>
+    <div class="lbl">Scheduling Algorithm</div>
+    <div class="ag" id="algo-grid">
+      <button class="abtn on predictive" data-a="predictive">Predictive ★</button>
+      <button class="abtn" data-a="roundrobin">Round Robin</button>
+      <button class="abtn" data-a="bestfit">Best Fit</button>
+      <button class="abtn" data-a="leastloaded">Least Loaded</button>
+      <button class="abtn" data-a="priority">Priority-Aware</button>
+      <button class="abtn" data-a="firstfit">First Fit</button>
+      <button class="abtn" data-a="random">Random</button>
+    </div>
+  </div>
+
+  <!-- Priority -->
+  <div>
+    <div class="lbl">Task Priority</div>
+    <div class="prow">
+      <button class="pbtn ph" data-p="high">🔴 High</button>
+      <button class="pbtn pn on" data-p="normal">🟡 Normal</button>
+      <button class="pbtn pl" data-p="low">🟢 Low</button>
+    </div>
+  </div>
+
+  <!-- System toggles -->
+  <div>
+    <div class="lbl">System Features</div>
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <label class="toggle-row" style="cursor:pointer">
+        <div>
+          <div class="tgl-label">Auto-Scaling</div>
+          <div class="tgl-sub">spin up/down VMs</div>
+        </div>
+        <div class="tgl-switch">
+          <input type="checkbox" id="tgl-scale" checked onchange="toggleScale()">
+          <div class="tgl-track"></div>
+          <div class="tgl-thumb"></div>
+        </div>
+      </label>
+    </div>
+  </div>
+
+  <!-- Sliders -->
+  <div>
+    <div class="lbl">Demand Control</div>
+    <div class="srow">
+      <div class="stop"><span class="sk">CPU demand</span><span class="sv" id="o-cpu">20%</span></div>
+      <input type="range" id="sl-cpu" min="5" max="50" value="20">
+    </div>
+    <div class="srow">
+      <div class="stop"><span class="sk">Memory demand</span><span class="sv" id="o-mem">15%</span></div>
+      <input type="range" id="sl-mem" min="5" max="45" value="15">
+    </div>
+    <div class="srow">
+      <div class="stop"><span class="sk">Sim speed</span><span class="sv" id="o-spd">1.0×</span></div>
+      <input type="range" id="sl-spd" min="0.25" max="5" value="1" step="0.25">
+    </div>
+    <div class="srow">
+      <div class="stop"><span class="sk">Auto interval</span><span class="sv" id="o-iv">2.0s</span></div>
+      <input type="range" id="sl-iv" min="500" max="6000" value="2000" step="100">
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div>
+    <div class="lbl">Actions</div>
+    <div class="bstack">
+      <button class="xb prim"    id="b-add">＋ Add Task</button>
+      <button class="xb"         id="b-burst">⚡ Burst × 5</button>
+      <button class="xb"         id="b-stress">💥 Stress × 20</button>
+      <button class="xb pur-btn" id="b-migrate">⇄ Force Migrate</button>
+      <button class="xb grn-btn" id="b-auto">▶ Start Auto</button>
+      <button class="xb muted"   id="b-reset">↺ Reset All</button>
+    </div>
+  </div>
+
+  <!-- Queue -->
+  <div>
+    <div class="lbl">Task Queue (Retry/High/Normal/Low)</div>
+    <div class="qwrap" id="q-list"><span class="qe">Queue empty</span></div>
+  </div>
+
+  <!-- Log -->
+  <div style="flex:1">
+    <div class="lbl">Event Log</div>
+    <div class="logwrap" id="log-wrap"></div>
+  </div>
+
+</div>
+</div><!-- /main -->
+</div><!-- /root -->
+
+<div id="banner">⚠ Backend offline — run <b>python app.py</b> in terminal, then refresh</div>
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// CONFIG
+const API     = 'http://127.0.0.1:5000/api';
+const POLL_MS = 2000;
+
+// ── State ──────────────────────────────────────────
+let autoOn   = false;
+let selPrio  = 'normal';
+let charts   = {};
+let lastDone = 0, lastFail = 0;
+let thrHist  = new Array(20).fill(0);
+let failHist = new Array(20).fill(0);
+let qHist    = {retry:new Array(20).fill(0),high:new Array(20).fill(0),
+                normal:new Array(20).fill(0),low:new Array(20).fill(0)};
+
+// ── Clock ──────────────────────────────────────────
+setInterval(()=>{
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+},1000);
+
+// ── Toast ──────────────────────────────────────────
+function toast(msg,dur=2200){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+// ═══════════════════════════════════════════════════
+// CHARTS
+const GR='rgba(255,255,255,.03)', TC='#3a5570';
+const base={
+  responsive:true,maintainAspectRatio:false,animation:{duration:280},
+  plugins:{legend:{display:false}},
+  scales:{
+    x:{grid:{color:GR},ticks:{color:TC,font:{family:"'Fira Code'",size:8},maxRotation:0,maxTicksLimit:6}},
+    y:{grid:{color:GR},ticks:{color:TC,font:{family:"'Fira Code'",size:8}}}
+  }
+};
+
+function initCharts(){
+  const e20=()=>new Array(20).fill(0), l20=()=>new Array(20).fill('');
+
+  charts.line=new Chart(document.getElementById('ch-line'),{
+    type:'line',data:{labels:l20(),datasets:[
+      {label:'CPU',data:e20(),borderColor:'#2d8eff',backgroundColor:'rgba(45,142,255,.06)',borderWidth:1.5,pointRadius:0,fill:true,tension:.4},
+      {label:'MEM',data:e20(),borderColor:'#00dea0',backgroundColor:'rgba(0,222,160,.06)',borderWidth:1.5,pointRadius:0,fill:true,tension:.4},
+      {label:'PRED',data:e20(),borderColor:'rgba(168,85,255,.7)',backgroundColor:'transparent',borderWidth:1,borderDash:[4,3],pointRadius:0,fill:false,tension:.4},
+    ]},
+    options:{...base,scales:{...base.scales,y:{...base.scales.y,min:0,max:100,ticks:{...base.scales.y.ticks,callback:v=>v+'%'}}}}
+  });
+
+  charts.bar=new Chart(document.getElementById('ch-bar'),{
+    type:'bar',
+    data:{labels:[],datasets:[
+      {label:'CPU',data:[],backgroundColor:'rgba(45,100,255,.55)',borderColor:'#2d8eff',borderWidth:1},
+      {label:'MEM',data:[],backgroundColor:'rgba(0,180,120,.55)',borderColor:'#00dea0',borderWidth:1},
+    ]},
+    options:{...base,scales:{...base.scales,y:{...base.scales.y,min:0,max:100}}}
+  });
+
+  charts.pie=new Chart(document.getElementById('ch-pie'),{
+    type:'doughnut',data:{labels:['CPU','MEM','Mix','I/O'],datasets:[{
+      data:[1,1,1,1],borderWidth:1,
+      backgroundColor:['rgba(45,100,255,.7)','rgba(0,180,120,.7)','rgba(255,119,48,.7)','rgba(168,85,255,.7)'],
+      borderColor:['#2d8eff','#00dea0','#ff7730','#a855ff']
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:280},plugins:{legend:{display:false}}}
+  });
+
+  charts.thr=new Chart(document.getElementById('ch-thr'),{
+    type:'bar',data:{labels:l20(),datasets:[
+      {label:'Done',data:e20(),backgroundColor:'rgba(0,222,160,.5)',borderColor:'#00dea0',borderWidth:1},
+      {label:'Failed',data:e20(),backgroundColor:'rgba(255,51,85,.5)',borderColor:'#ff3355',borderWidth:1},
+    ]},
+    options:{...base,scales:{...base.scales,y:{...base.scales.y,min:0}}}
+  });
+
+  charts.q=new Chart(document.getElementById('ch-q'),{
+    type:'line',data:{labels:l20(),datasets:[
+      {label:'Retry',data:e20(),borderColor:'#ff3355',backgroundColor:'rgba(255,51,85,.08)',borderWidth:1,pointRadius:0,fill:true,tension:.4},
+      {label:'High', data:e20(),borderColor:'#a855ff',backgroundColor:'rgba(168,85,255,.06)',borderWidth:1,pointRadius:0,fill:true,tension:.4},
+      {label:'Norm', data:e20(),borderColor:'#2d8eff',backgroundColor:'rgba(45,142,255,.05)',borderWidth:1,pointRadius:0,fill:true,tension:.4},
+      {label:'Low',  data:e20(),borderColor:'#3a5570',backgroundColor:'rgba(58,85,112,.05)',borderWidth:1,pointRadius:0,fill:true,tension:.4},
+    ]},
+    options:{...base,scales:{...base.scales,y:{...base.scales.y,min:0}}}
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER
+
+function renderVMs(vms){
+  document.getElementById('vm-count-lbl').textContent=`(${vms.length})`;
+  document.getElementById('vm-count-chart').textContent=`${vms.length} VMs`;
+  document.getElementById('h-vms').textContent=vms.length;
+
+  document.getElementById('vm-panel').innerHTML=vms.map(vm=>{
+    const cw=vm.cpu.toFixed(1),mw=vm.mem.toFixed(1),dw=(vm.disk||0).toFixed(1);
+    const pred=vm.predicted_load||0;
+    const cc=vm.cpu>85?'d':vm.cpu>65?'w':'';
+    const mc=vm.mem>85?'d':vm.mem>65?'w':'';
+    const st=vm.status||'idle';
+    const bm={idle:'bi',active:'ba',busy:'bb',overloaded:'bo'};
+    const autoClass=vm.auto_scaled?'auto-vm':'';
+    return `<div class="vmc ${st} ${autoClass}">
+      <div class="vmtop">
+        <div><div class="vmname">${vm.name}</div><div class="vmrgn">${vm.region}</div></div>
+        <span class="vmbadge ${bm[st]||'bi'}">${st}</span>
+      </div>
+      <div class="brow">
+        <div class="bmeta"><span class="bk">CPU</span><span class="bv">${cw}%</span></div>
+        <div class="bt"><div class="bf cpu ${cc}" style="width:${cw}%"></div></div>
+      </div>
+      <div class="brow">
+        <div class="bmeta"><span class="bk">MEM</span><span class="bv">${mw}%</span></div>
+        <div class="bt"><div class="bf mem ${mc}" style="width:${mw}%"></div></div>
+      </div>
+      <div class="brow">
+        <div class="bmeta"><span class="bk">DISK</span><span class="bv">${dw}%</span></div>
+        <div class="bt"><div class="bf dsk" style="width:${dw}%"></div></div>
+      </div>
+      <div class="pred-row">
+        <div class="bmeta">
+          <span class="pred-label">◌ Predicted: ${pred.toFixed(1)}%</span>
+        </div>
+        <div class="pred-bar-wrap"><div class="pred-bar" style="width:${Math.min(100,pred)}%"></div></div>
+      </div>
+      <div class="vm-meta">
+        <span>⚡${vm.task_count} tasks</span>
+        <span>⚠${vm.failures} faults</span>
+        <span>⇄${vm.migrations_in+vm.migrations_out} migr</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // update bar chart labels dynamically (VMs can change count)
+  charts.bar.data.labels   = vms.map(v=>v.name.replace('VM-',''));
+  charts.bar.data.datasets[0].data = vms.map(v=>v.cpu);
+  charts.bar.data.datasets[1].data = vms.map(v=>v.mem);
+  charts.bar.update('none');
+}
+
+function renderHeader(s){
+  document.getElementById('h-cpu').textContent   = s.avg_cpu+'%';
+  document.getElementById('h-mem').textContent   = s.avg_mem+'%';
+  document.getElementById('h-pred').textContent  = (s.avg_predicted||0)+'%';
+  document.getElementById('h-done').textContent  = s.tasks_done;
+  document.getElementById('h-fail').textContent  = s.tasks_failed;
+  document.getElementById('h-migr').textContent  = s.tasks_migrated||0;
+  document.getElementById('h-retry').textContent = s.tasks_retried||0;
+  document.getElementById('h-q').textContent     = s.queued;
+  document.getElementById('f-algo2').textContent = s.algo;
+}
+
+function renderCharts(metrics, stats){
+  if(metrics.length){
+    const sl=metrics.slice(-20);
+    charts.line.data.labels=sl.map(m=>m.t);
+    charts.line.data.datasets[0].data=sl.map(m=>m.cpu);
+    charts.line.data.datasets[1].data=sl.map(m=>m.mem);
+    charts.line.data.datasets[2].data=sl.map(m=>m.load||0);
+    charts.line.update('none');
+  }
+  const dd=stats.tasks_done-lastDone, df=stats.tasks_failed-lastFail;
+  lastDone=stats.tasks_done; lastFail=stats.tasks_failed;
+  thrHist.push(dd); thrHist.shift();
+  failHist.push(df); failHist.shift();
+  charts.thr.data.datasets[0].data=[...thrHist];
+  charts.thr.data.datasets[1].data=[...failHist];
+  charts.thr.update('none');
+}
+
+function renderQueue(queue){
+  const el=document.getElementById('q-list');
+  if(!queue.length){el.innerHTML='<span class="qe">Queue empty</span>';return;}
+  const pm={'retry':'q-retry','high':'q-high','normal':'q-normal','low':'q-low'};
+  el.innerHTML=queue.slice(0,40).map(t=>{
+    const retry=t.attempts>0?` ×${t.attempts}`:'';
+    return `<span class="qchip ${pm[t.priority]||'q-normal'}">${t.name}${retry}</span>`;
+  }).join('');
+
+  // queue depth chart
+  const lanes={retry:0,high:0,normal:0,low:0};
+  queue.forEach(t=>{ if(lanes[t.priority]!==undefined) lanes[t.priority]++; });
+  Object.keys(qHist).forEach((k,i)=>{ qHist[k].push(lanes[k]); qHist[k].shift(); charts.q.data.datasets[i].data=[...qHist[k]]; });
+  charts.q.update('none');
+}
+
+function renderPie(vms, queue){
+  const cnt={cpu:0,mem:0,mix:0,io:0};
+  [...vms.flatMap(v=>v.tasks),...queue].forEach(t=>{
+    if(t.type==='cpu-intensive') cnt.cpu++;
+    else if(t.type==='memory-intensive') cnt.mem++;
+    else if(t.type==='io-bound') cnt.io++;
+    else cnt.mix++;
+  });
+  const vals=[cnt.cpu,cnt.mem,cnt.mix,cnt.io];
+  charts.pie.data.datasets[0].data=vals.some(v=>v>0)?vals:[1,1,1,1];
+  charts.pie.update('none');
+}
+
+function renderLog(log){
+  document.getElementById('log-wrap').innerHTML=log.map(e=>
+    `<div class="ll ${e.level||'info'}"><span class="lt">${e.time}</span><span class="lm">${e.msg}</span></div>`
+  ).join('');
+}
+
+function setConn(ok){
+  const el=document.getElementById('conn'), bn=document.getElementById('banner');
+  el.textContent=ok?'ONLINE':'OFFLINE'; el.className=ok?'on':'off';
+  bn.style.display=ok?'none':'block';
+}
+
+// ═══════════════════════════════════════════════════
+// SSE
+function connectSSE(){
+  const es=new EventSource(`${API}/stream`);
+  es.onmessage=e=>{
+    try{
+      const d=JSON.parse(e.data);
+      if(d.connected){setConn(true);return;}
+      document.getElementById('h-cpu').textContent=d.avg_cpu+'%';
+      document.getElementById('h-mem').textContent=d.avg_mem+'%';
+      document.getElementById('h-done').textContent=d.tasks_done;
+      document.getElementById('h-fail').textContent=d.tasks_failed;
+      document.getElementById('h-q').textContent=d.queued;
+      document.getElementById('h-vms').textContent=d.vm_count||'?';
+    }catch(ex){}
+  };
+  es.onerror=()=>setConn(false);
+}
+
+// ═══════════════════════════════════════════════════
+// POLL
+async function poll(){
+  try{
+    const res=await fetch(`${API}/state`,{signal:AbortSignal.timeout(4000)});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    setConn(true);
+    renderVMs(data.vms);
+    renderHeader(data.stats);
+    renderCharts(data.metrics||[], data.stats);
+    renderQueue(data.queue||[]);
+    renderPie(data.vms, data.queue||[]);
+    renderLog(data.log||[]);
+    if(data.stats.auto!==autoOn){autoOn=data.stats.auto;syncAutoBtn();}
+  }catch(e){ setConn(false); }
+}
+
+// ═══════════════════════════════════════════════════
+// API
+async function post(path,body={}){
+  try{
+    const r=await fetch(`${API}${path}`,{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(body),
+      signal:AbortSignal.timeout(5000)});
+    return r.ok?await r.json():null;
+  }catch(e){setConn(false);return null;}
+}
+
+// ═══════════════════════════════════════════════════
+// BUTTONS
+document.getElementById('b-add').onclick=async()=>{
+  const r=await post('/task',{cpu:+document.getElementById('sl-cpu').value,
+    mem:+document.getElementById('sl-mem').value,priority:selPrio});
+  if(r){toast(`✓ ${r.task} queued`);poll();}
+};
+document.getElementById('b-burst').onclick=async()=>{
+  const r=await post('/task/burst',{count:5,priority:selPrio});
+  if(r){toast(`⚡ ${r.queued} tasks queued`);poll();}
+};
+document.getElementById('b-stress').onclick=async()=>{
+  const r=await post('/task/burst',{count:20,priority:selPrio});
+  if(r){toast(`💥 ${r.queued} stress tasks sent`);poll();}
+};
+document.getElementById('b-migrate').onclick=async()=>{
+  const r=await post('/migrate');
+  if(r){toast(`⇄ Migration triggered`);poll();}
+};
+document.getElementById('b-auto').onclick=async()=>{
+  const iv=+document.getElementById('sl-iv').value;
+  const r=await post('/auto',{interval:iv});
+  if(r){autoOn=r.auto;syncAutoBtn();poll();}
+};
+document.getElementById('b-reset').onclick=async()=>{
+  const r=await post('/reset');
+  if(r){lastDone=0;lastFail=0;thrHist.fill(0);failHist.fill(0);
+    Object.keys(qHist).forEach(k=>qHist[k].fill(0));toast('↺ Reset');poll();}
+};
+
+function syncAutoBtn(){
+  const b=document.getElementById('b-auto');
+  b.textContent=autoOn?'⏹ Stop Auto':'▶ Start Auto';
+  b.className=autoOn?'xb grn-btn on':'xb grn-btn';
+}
+
+// ── Algo ──────────────────────────────────────────
+document.getElementById('algo-grid').addEventListener('click',async e=>{
+  const btn=e.target.closest('.abtn'); if(!btn) return;
+  const r=await post('/algo',{algo:btn.dataset.a}); if(!r) return;
+  document.querySelectorAll('.abtn').forEach(b=>b.classList.remove('on','predictive'));
+  btn.classList.add('on');
+  if(btn.dataset.a==='predictive') btn.classList.add('predictive');
+  document.getElementById('f-algo2').textContent=btn.textContent.replace(' ★','').trim();
+  poll();
+});
+
+// ── Priority ──────────────────────────────────────
+document.querySelectorAll('.pbtn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on'); selPrio=btn.dataset.p;
+  });
+});
+
+// ── Auto-scale toggle ─────────────────────────────
+async function toggleScale(){
+  const on=document.getElementById('tgl-scale').checked;
+  await post('/autoscale',{enabled:on});
+  toast(on?'✓ Auto-Scaling ON':'Auto-Scaling OFF');
+}
+
+// ── Sliders ───────────────────────────────────────
+document.getElementById('sl-cpu').oninput=e=>document.getElementById('o-cpu').textContent=e.target.value+'%';
+document.getElementById('sl-mem').oninput=e=>document.getElementById('o-mem').textContent=e.target.value+'%';
+document.getElementById('sl-iv').oninput=e=>document.getElementById('o-iv').textContent=(e.target.value/1000).toFixed(1)+'s';
+document.getElementById('sl-spd').oninput=async e=>{
+  const v=parseFloat(e.target.value);
+  document.getElementById('o-spd').textContent=v.toFixed(2)+'×';
+  await post('/speed',{speed:v});
+};
+
+// ═══════════════════════════════════════════════════
+// BOOT
+initCharts();
+connectSSE();
+poll();
+setInterval(poll, POLL_MS);
+</script>
+</body>
+</html>

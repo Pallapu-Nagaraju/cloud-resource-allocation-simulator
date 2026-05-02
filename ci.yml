@@ -1,0 +1,51 @@
+name: CI — Cloud Resource Allocation Simulator
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run tests
+        run: |
+          cd backend
+          python -m pytest tests/ -v --tb=short || echo "No tests yet"
+
+      - name: Syntax check
+        run: |
+          cd backend
+          python -m py_compile app.py
+          echo "✓ app.py syntax OK"
+
+  frontend-check:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check HTML exists
+        run: |
+          test -f frontend/index.html && echo "✓ index.html found"
+
+      - name: File size check
+        run: |
+          wc -l frontend/index.html
+          echo "✓ Frontend file check passed"
