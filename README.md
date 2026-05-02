@@ -137,7 +137,7 @@ Task Arrives → Scheduler (Algorithm) → VM Available?
 
 ### 1. Clone repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/cloud-resource-allocation-simulator.git
+git clone https://github.com/Pallapu-Nagaraju/cloud-resource-allocation-simulator.git
 cd cloud-resource-allocation-simulator
 ```
 
