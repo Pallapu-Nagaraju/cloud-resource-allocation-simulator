@@ -107,7 +107,7 @@ cd cloud-resource-allocation-simulator
 ```bash
 cd backend
 pip install -r requirements.txt
-python app.py
+python app_v4.py
 # API runs at http://localhost:5000
 ```
 
