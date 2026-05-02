@@ -175,3 +175,21 @@ This simulator demonstrates core cloud resource management concepts. Future impr
 3. Flask Documentation — https://flask.palletsprojects.com
 4. Chart.js Documentation — https://www.chartjs.org
 5. NIST Cloud Computing Definition — https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-145.pdf
+
+
+## 📊 System Behavior
+
+### Initial State
+![Initial](images/01_initial_state.png)
+
+### Burst Load
+![Burst](images/03_burst_load.png)
+
+### Round Robin Failure
+![RR](images/04_overload.png)
+
+### Predictive Scheduling Improvement
+![Predictive](images/08_algorithm_comparison.png)
+
+### Auto Scaling
+![Scaling](images/06_autoscale_after.png)
