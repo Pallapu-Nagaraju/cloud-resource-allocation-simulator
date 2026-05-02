@@ -8,6 +8,10 @@
 
 This project simulates how cloud platforms allocate computing resources (CPU, memory, disk) across multiple Virtual Machines (VMs). It implements **5 scheduling algorithms**, real-time monitoring, task queuing, and a visual dashboard.
 
+Description 
+
+Adaptive cloud resource allocation simulator with multiple scheduling algorithms and real-time monitoring.
+
 ## Features
 
 - **4 Virtual Machines** with CPU, Memory, and Disk tracking
@@ -20,6 +24,38 @@ This project simulates how cloud platforms allocate computing resources (CPU, me
 - **Burst mode** — spawn 5 tasks simultaneously
 
 ---
+
+
+## 📊 System Behavior & Results
+
+### Initial State
+![Initial](images/01_initial_state.png)
+System starts with idle VMs and no workload.
+
+---
+
+### Burst Load
+![Burst](images/03_burst_load.png)
+A sudden spike in tasks increases CPU and memory usage across all VMs.
+
+---
+
+### Round Robin Failure
+![RR](images/04_overload.png)
+Round Robin distributes tasks blindly, causing some VMs to become overloaded while others remain underutilised. This leads to queue buildup and higher failure rates.
+
+---
+
+### Predictive Scheduling Improvement
+![Predictive](images/08_algorithm_comparison.png)
+Predictive scheduling balances workload based on system state, reducing overload conditions and improving overall system stability.
+
+---
+
+### Auto Scaling
+![Scaling](images/06_autoscale_after.png)
+The system dynamically scales resources to handle increasing demand, preventing performance degradation.
+
 
 ## Technology Used
 
@@ -177,19 +213,3 @@ This simulator demonstrates core cloud resource management concepts. Future impr
 5. NIST Cloud Computing Definition — https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-145.pdf
 
 
-## 📊 System Behavior
-
-### Initial State
-![Initial](images/01_initial_state.png)
-
-### Burst Load
-![Burst](images/03_burst_load.png)
-
-### Round Robin Failure
-![RR](images/04_overload.png)
-
-### Predictive Scheduling Improvement
-![Predictive](images/08_algorithm_comparison.png)
-
-### Auto Scaling
-![Scaling](images/06_autoscale_after.png)
